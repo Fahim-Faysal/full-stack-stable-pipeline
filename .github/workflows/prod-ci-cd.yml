@@ -1,0 +1,97 @@
+name: Node.JS CI
+
+on: 
+  push:
+    branches:
+      - main
+
+jobs:
+  install-depen:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Use Node.JS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: "npm"
+      
+      - name: install the dependencies/frontend
+        run: |
+          cd frontend
+          npm install
+      
+      - name: build the app
+        run: |
+          cd frontend
+          npm run build
+      
+      - name: lint-test/backend
+        run: |
+          cd backend
+          npm run lint
+
+      - name: install dependencies/backend
+        run: |
+          cd backend
+          npm install
+      
+      - name: test the application/backend
+        run: |
+          cd backend
+          npm test
+
+  
+  build-docker-image-push:
+    name: docker-building
+    runs-on: ubuntu-latest
+    needs: install-depen
+
+    steps:
+      - name: login-do-docker
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/react-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/react-frontend:${{ github.sha }}
+
+      - name: Build & Push Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/multi-service-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/multi-service-backend:${{ github.sha }}
+
+      - name: Trivy Scan Backend
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+          trivy image --format json --output trivy-backend.json ${{ secrets.DOCKERHUB_USERNAME }}/multi-service-backend:latest || true
+
+      - name: Upload Backend Scan
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-backend
+          path: trivy-backend.json
+
+      - name: Trivy Scan Frontend
+        run: |
+          trivy image --format json --output trivy-frontend.json ${{ secrets.DOCKERHUB_USERNAME }}/react-frontend:latest || true
+
+      - name: Upload Frontend Scan
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-frontend
+          path: trivy-frontend.json
+
