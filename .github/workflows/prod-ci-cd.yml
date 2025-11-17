@@ -31,15 +31,16 @@ jobs:
           cd frontend
           npm run build
       
+      - name: install dependencies/backend
+        run: |
+          cd backend
+          npm install
+      
       - name: lint-test/backend
         run: |
           cd backend
           npm run lint
 
-      - name: install dependencies/backend
-        run: |
-          cd backend
-          npm install
       
       - name: test the application/backend
         run: |
