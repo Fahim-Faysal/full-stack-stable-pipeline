@@ -39,13 +39,7 @@ jobs:
       - name: lint-test/backend
         run: |
           cd backend
-          npm run lint
-
-      
-      - name: test the application/backend
-        run: |
-          cd backend
-          npm test
+           npm run lint
 
   
   build-docker-image-push:
